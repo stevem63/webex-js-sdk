@@ -190,6 +190,23 @@ describe('plugin-meetings', () => {
         assert.equal(requestParams.uri, 'locusUrl/loci/call?alternateRedirect=true');
         assert.equal(requestParams.body.invitee.address, 'sipUrl');
       });
+
+      it('adds deviceCapabilities to request when breakouts are supported', async () => {
+        await meetingsRequest.joinMeeting({
+          breakoutsSupported: true
+        });
+        const requestParams = meetingsRequest.request.getCall(0).args[0];
+
+        assert.deepEqual(requestParams.body.deviceCapabilities, ['BREAKOUTS_SUPPORTED']);
+      });
+
+      it('does not add deviceCapabilities to request when breakouts are not supported', async () => {
+        await meetingsRequest.joinMeeting({});
+
+        const requestParams = meetingsRequest.request.getCall(0).args[0];
+
+        assert.deepEqual(requestParams.body.deviceCapabilities, undefined);
+      });
     });
 
     describe('#pstn', () => {
@@ -311,6 +328,25 @@ describe('plugin-meetings', () => {
         assert.equal(requestParams.uri, reactionChannelUrl);
         assert.equal(requestParams.body.sender.participantId, participantId);
         assert.equal(requestParams.body.reaction, reaction);
+      });
+    });
+
+    describe('#toggleReactions', () => {
+      it('sends request to toggleReactions', async () => {
+        const locusUrl = 'locusUrl';
+        const requestingParticipantId = 'requestingParticipantId';
+
+        await meetingsRequest.toggleReactions({
+          enable: true,
+          locusUrl,
+          requestingParticipantId,
+        });
+        const requestParams = meetingsRequest.request.getCall(0).args[0];
+
+        assert.equal(requestParams.method, 'PUT');
+        assert.equal(requestParams.uri, `${locusUrl}/controls`);
+        assert.equal(requestParams.body.reactions.enabled, true);
+        assert.equal(requestParams.body.requestingParticipantId, requestingParticipantId);
       });
     });
   });

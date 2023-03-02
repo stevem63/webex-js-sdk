@@ -1,10 +1,8 @@
 import {assert} from '@webex/test-helper-chai';
 import sinon from 'sinon';
 import TurnDiscovery from '@webex/plugin-meetings/src/roap/turnDiscovery';
-import {ROAP} from '@webex/plugin-meetings/src/constants';
 
 import RoapRequest from '@webex/plugin-meetings/src/roap/request';
-import RoapHandler from '@webex/plugin-meetings/src/roap/handler';
 import Roap from '@webex/plugin-meetings/src/roap/';
 import Meeting from '@webex/plugin-meetings/src/meeting';
 
@@ -40,26 +38,25 @@ describe('Roap', () => {
 
   describe('sendRoapMediaRequest', () => {
     let sendRoapStub;
-    let roapHandlerSubmitStub;
-
-    const meeting = {
-      id: 'some meeting id',
-      correlationId: 'correlation id',
-      selfUrl: 'self url',
-      mediaId: 'media id',
-      audio:{
-        isLocallyMuted: () => true,
-      },
-      video:{
-        isLocallyMuted: () => false,
-      },
-      setRoapSeq: sinon.stub(),
-      config: {experimental: {enableTurnDiscovery: false}},
-    };
+    let meeting;
 
     beforeEach(() => {
+      meeting = {
+        id: 'some meeting id',
+        correlationId: 'correlation id',
+        selfUrl: 'self url',
+        mediaId: 'media id',
+        audio:{
+          isLocallyMuted: () => true,
+        },
+        video:{
+          isLocallyMuted: () => false,
+        },
+        setRoapSeq: sinon.stub(),
+        config: {experimental: {enableTurnDiscovery: false}},
+      };
+
       sendRoapStub = sinon.stub(RoapRequest.prototype, 'sendRoap').resolves({});
-      roapHandlerSubmitStub = sinon.stub(RoapHandler.prototype, 'submit');
       meeting.setRoapSeq.resetHistory();
     });
 
@@ -86,7 +83,8 @@ describe('Roap', () => {
           meeting,
           sdp: 'sdp',
           reconnect,
-          roapSeq: 1,
+          seq: 2,
+          tieBreaker: 4294967294,
         });
 
         const expectedRoapMessage = {
@@ -106,23 +104,42 @@ describe('Roap', () => {
           audioMuted: meeting.audio?.isLocallyMuted(),
           videoMuted: meeting.video?.isLocallyMuted(),
           meetingId: meeting.id,
+          preferTranscoding: true,
         });
-
-        assert.calledTwice(roapHandlerSubmitStub);
-        assert.calledWith(roapHandlerSubmitStub, {
-          type: ROAP.SEND_ROAP_MSG,
-          msg: expectedRoapMessage,
-          correlationId: meeting.correlationId,
-        });
-        assert.calledWith(roapHandlerSubmitStub, {
-          type: ROAP.SEND_ROAP_MSG_SUCCESS,
-          seq: 2,
-          correlationId: meeting.correlationId,
-        });
-
-        assert.calledOnce(meeting.setRoapSeq);
-        assert.calledWith(meeting.setRoapSeq, 2);
       })
     );
+    it('sends roap request with preferTranscoding=false for multistream meetings', async () => {
+      const roap = new Roap({}, {parent: 'fake'});
+
+      meeting.isMultistream = true;
+
+      await roap.sendRoapMediaRequest({
+        meeting,
+        sdp: 'sdp',
+        reconnect: false,
+        seq: 10,
+        tieBreaker: 1,
+      });
+
+      const expectedRoapMessage = {
+        messageType: 'OFFER',
+        sdps: ['sdp'],
+        version: '2',
+        seq: 10,
+        tieBreaker: 1,
+      };
+
+      assert.calledOnce(sendRoapStub);
+      assert.calledWith(sendRoapStub, {
+        roapMessage: expectedRoapMessage,
+        correlationId: meeting.correlationId,
+        locusSelfUrl: meeting.selfUrl,
+        mediaId: meeting.mediaId,
+        audioMuted: meeting.audio.isLocallyMuted(),
+        videoMuted: meeting.video.isLocallyMuted(),
+        meetingId: meeting.id,
+        preferTranscoding: false,
+      });
+    });
   });
 });

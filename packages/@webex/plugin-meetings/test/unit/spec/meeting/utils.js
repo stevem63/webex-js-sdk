@@ -4,6 +4,7 @@ import MeetingUtil from '@webex/plugin-meetings/src/meeting/util';
 import LoggerProxy from '@webex/plugin-meetings/src/common/logs/logger-proxy';
 import LoggerConfig from '@webex/plugin-meetings/src/common/logs/logger-config';
 import Metrics from '@webex/plugin-meetings/src/metrics/index';
+import {DISPLAY_HINTS} from '@webex/plugin-meetings/dist/constants';
 
 describe('plugin-meetings', () => {
   describe('Meeting utils function', () => {
@@ -35,8 +36,9 @@ describe('plugin-meetings', () => {
       meeting.unsetRemoteTracks = sinon.stub();
       meeting.unsetPeerConnections = sinon.stub();
       meeting.reconnectionManager = {cleanUp: sinon.stub()};
-      meeting.roap = {stop: sinon.stub()};
       meeting.stopKeepAlive = sinon.stub();
+      meeting.updateLLMConnection = sinon.stub();
+      meeting.breakouts = {cleanUp: sinon.stub()};
     });
 
     afterEach(() => {
@@ -57,8 +59,9 @@ describe('plugin-meetings', () => {
         assert.calledOnce(meeting.unsetRemoteTracks);
         assert.calledOnce(meeting.unsetPeerConnections);
         assert.calledOnce(meeting.reconnectionManager.cleanUp);
-        assert.calledOnce(meeting.roap.stop);
         assert.calledOnce(meeting.stopKeepAlive);
+        assert.calledOnce(meeting.updateLLMConnection);
+        assert.calledOnce(meeting.breakouts.cleanUp);
       });
     });
 
@@ -127,6 +130,54 @@ describe('plugin-meetings', () => {
       });
     });
 
+    describe('remoteUpdateAudioVideo', () => {
+      it('#Should call meetingRequest.remoteAudioVideoToggle with correct parameters (multistream)', async () => {
+        const meeting = {
+          correlationId: 'correlation id',
+          isMultistream: true,
+          mediaId: '12345',
+          meetingJoinUrl: 'meetingJoinUrl',
+          locusUrl: 'locusUrl',
+          deviceUrl: 'some device url',
+          selfId: 'self id',
+          meetingRequest: {
+            remoteAudioVideoToggle: sinon.stub().returns(Promise.resolve({body: {}, headers: {}})),
+          },
+        };
+
+        await MeetingUtil.remoteUpdateAudioVideo(true, false, meeting);
+
+        assert.calledOnce(meeting.meetingRequest.remoteAudioVideoToggle);
+        const parameter = meeting.meetingRequest.remoteAudioVideoToggle.getCall(0).args[0];
+
+        assert.equal(parameter.locusUrl, 'locusUrl');
+        assert.equal(parameter.selfId, 'self id');
+        assert.equal(parameter.correlationId, 'correlation id');
+        assert.equal(parameter.deviceUrl, 'some device url');
+        assert.deepEqual(parameter.localMedias, [
+          {localSdp: '{"audioMuted":true,"videoMuted":false}', mediaId: '12345'},
+        ]);
+        assert.equal(parameter.preferTranscoding, false);
+      });
+
+      it('#Should call meetingRequest.remoteAudioVideoToggle with preferTranscoding:true for non multistream connections', async () => {
+        const meeting = {
+          isMultistream: false,
+          mediaId: '12345',
+          meetingRequest: {
+            remoteAudioVideoToggle: sinon.stub().returns(Promise.resolve({body: {}, headers: {}})),
+          },
+        };
+
+        await MeetingUtil.remoteUpdateAudioVideo(true, false, meeting);
+
+        assert.calledOnce(meeting.meetingRequest.remoteAudioVideoToggle);
+        const parameter = meeting.meetingRequest.remoteAudioVideoToggle.getCall(0).args[0];
+
+        assert.equal(parameter.preferTranscoding, true);
+      });
+    });
+
     describe('joinMeeting', () => {
       it('#Should call `meetingRequest.joinMeeting', async () => {
         const meeting = {
@@ -144,6 +195,44 @@ describe('plugin-meetings', () => {
         const parameter = meeting.meetingRequest.joinMeeting.getCall(0).args[0];
 
         assert.equal(parameter.inviteeAddress, 'meetingJoinUrl');
+        assert.equal(parameter.preferTranscoding, true);
+      });
+
+      it('#Should call meetingRequest.joinMeeting with breakoutsSupported=true when passed in as true', async () => {
+        const meeting = {
+          meetingRequest: {joinMeeting: sinon.stub().returns(Promise.resolve({body: {}, headers: {}}))}
+        };
+
+        MeetingUtil.parseLocusJoin = sinon.stub();
+        await MeetingUtil.joinMeeting(meeting, {
+          breakoutsSupported: true
+        });
+
+        assert.calledOnce(meeting.meetingRequest.joinMeeting);
+        const parameter = meeting.meetingRequest.joinMeeting.getCall(0).args[0];
+
+        assert.equal(parameter.breakoutsSupported, true);
+      });
+
+
+      it('#Should call meetingRequest.joinMeeting with preferTranscoding=false when multistream is enabled', async () => {
+        const meeting = {
+          isMultistream: true,
+          meetingJoinUrl: 'meetingJoinUrl',
+          locusUrl: 'locusUrl',
+          meetingRequest: {
+            joinMeeting: sinon.stub().returns(Promise.resolve({body: {}, headers: {}})),
+          },
+        };
+
+        MeetingUtil.parseLocusJoin = sinon.stub();
+        await MeetingUtil.joinMeeting(meeting, {});
+
+        assert.calledOnce(meeting.meetingRequest.joinMeeting);
+        const parameter = meeting.meetingRequest.joinMeeting.getCall(0).args[0];
+
+        assert.equal(parameter.inviteeAddress, 'meetingJoinUrl');
+        assert.equal(parameter.preferTranscoding, false);
       });
 
       it('#Should fallback sipUrl if meetingJoinUrl does not exists', async () => {
@@ -315,5 +404,18 @@ describe('plugin-meetings', () => {
         });
       });
     });
-  });
+
+    describe('reactions', () => {
+      describe('canEnableReactions', () => {
+        [[null, DISPLAY_HINTS.ENABLE_REACTIONS, true], [null, DISPLAY_HINTS.DISABLE_REACTIONS, false], [null, undefined, null]].forEach(() => ([originalValue, displayHint, expected]) => {
+          assert.deepEqual(MeetingUtil.canEnableReactions(originalValue, [displayHint]), expected);
+        });
+      });
+      describe('canEnableReactions', () => {
+        [[null, DISPLAY_HINTS.REACTIONS_ACTIVE, true], [null, DISPLAY_HINTS.REACTIONS_INACTIVE, false], [null, undefined, null]].forEach(([originalValue, displayHint, expected]) => {
+          assert.deepEqual(MeetingUtil.canSendReactions(originalValue, [displayHint]), expected);
+        });
+      });
+    });
+  })
 });

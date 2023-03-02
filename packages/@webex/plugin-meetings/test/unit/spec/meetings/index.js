@@ -12,7 +12,6 @@ import uuid from 'uuid';
 import StaticConfig from '@webex/plugin-meetings/src/common/config';
 import TriggerProxy from '@webex/plugin-meetings/src/common/events/trigger-proxy';
 import LoggerConfig from '@webex/plugin-meetings/src/common/logs/logger-config';
-import MediaUtil from '@webex/plugin-meetings/src/media/util';
 import Meeting from '@webex/plugin-meetings/src/meeting';
 import MeetingUtil from '@webex/plugin-meetings/src/meeting/util';
 import Meetings from '@webex/plugin-meetings/src/meetings';
@@ -108,6 +107,7 @@ describe('plugin-meetings', () => {
       });
 
       Object.assign(webex.internal, {
+        llm: {on: sinon.stub()},
         device: {
           deviceType: 'FAKE_DEVICE',
           register: sinon.stub().returns(Promise.resolve()),
@@ -866,7 +866,6 @@ describe('plugin-meetings', () => {
       });
       describe('#createMeeting', () => {
         beforeEach(() => {
-          MediaUtil.createPeerConnection = sinon.stub().returns(true);
           webex.internal.device.userId = uuid1;
           webex.internal.device.url = url1;
           MeetingCollection.set = sinon.stub().returns(true);
@@ -1195,7 +1194,6 @@ describe('plugin-meetings', () => {
     describe('Public Event Triggers', () => {
       describe('#destroy', () => {
         beforeEach(() => {
-          MediaUtil.createPeerConnection = sinon.stub().returns(true);
           MeetingUtil.cleanUp = sinon.stub();
         });
         it('should have #destroy', () => {
@@ -1294,7 +1292,6 @@ describe('plugin-meetings', () => {
       let meeting;
 
       beforeEach(async () => {
-        MediaUtil.createPeerConnection = sinon.stub().returns(true);
         webex.internal.device.userId = uuid1;
         webex.internal.device.url = url1;
         MeetingCollection.set = sinon.stub().returns(true);

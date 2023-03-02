@@ -11,6 +11,12 @@ import Meeting from '../meeting';
 
 const TURN_DISCOVERY_TIMEOUT = 10; // in seconds
 
+// Roap spec says that seq should start from 1, but TURN discovery works fine with seq=0
+// and this is handy for us, because TURN discovery is always done before the first SDP exchange,
+// so we can do it with seq=0 or not do it at all and then we create the RoapMediaConnection
+// and do the SDP offer with seq=1
+const TURN_DISCOVERY_SEQ = 0;
+
 /**
  * Handles the process of finding out TURN server information from Linus.
  * This is achieved by sending a TURN_DISCOVERY_REQUEST.
@@ -146,9 +152,7 @@ export default class TurnDiscovery {
    * @private
    * @memberof Roap
    */
-  private sendRoapTurnDiscoveryRequest(meeting: Meeting, isReconnecting: boolean) {
-    const seq = meeting.roapSeq + 1;
-
+  sendRoapTurnDiscoveryRequest(meeting: Meeting, isReconnecting: boolean) {
     if (this.defer) {
       LoggerProxy.logger.warn(
         'Roap:turnDiscovery#sendRoapTurnDiscoveryRequest --> already in progress'
@@ -162,7 +166,7 @@ export default class TurnDiscovery {
     const roapMessage = {
       messageType: ROAP.ROAP_TYPES.TURN_DISCOVERY_REQUEST,
       version: ROAP.ROAP_VERSION,
-      seq,
+      seq: TURN_DISCOVERY_SEQ,
     };
 
     LoggerProxy.logger.info(
@@ -180,10 +184,9 @@ export default class TurnDiscovery {
         audioMuted: meeting.audio?.isLocallyMuted(),
         videoMuted: meeting.video?.isLocallyMuted(),
         meetingId: meeting.id,
+        preferTranscoding: !meeting.isMultistream,
       })
       .then(({mediaConnections}) => {
-        meeting.setRoapSeq(seq);
-
         if (mediaConnections) {
           meeting.updateMediaConnections(mediaConnections);
         }
@@ -204,7 +207,7 @@ export default class TurnDiscovery {
       roapMessage: {
         messageType: ROAP.ROAP_TYPES.OK,
         version: ROAP.ROAP_VERSION,
-        seq: meeting.roapSeq,
+        seq: TURN_DISCOVERY_SEQ,
       },
       // @ts-ignore - fix type
       locusSelfUrl: meeting.selfUrl,
@@ -214,6 +217,7 @@ export default class TurnDiscovery {
       audioMuted: meeting.audio?.isLocallyMuted(),
       videoMuted: meeting.video?.isLocallyMuted(),
       meetingId: meeting.id,
+      preferTranscoding: !meeting.isMultistream,
     });
   }
 
@@ -225,24 +229,28 @@ export default class TurnDiscovery {
    *  | <----TURN_DISCOVERY_RESPONSE----- |
    *  | --------------OK----------------> |
    *
+   * This TURN discovery roap exchange is always done with seq=0.
+   * The RoapMediaConnection SDP exchange always starts with seq=1,
+   * so it works fine no matter if TURN discovery is done or not.
+   *
    * @param {Meeting} meeting
    * @param {Boolean} isReconnecting should be set to true if this is a new
    *                                 media connection just after a reconnection
    * @returns {Promise}
    */
-  doTurnDiscovery(meeting: Meeting, isReconnecting?: boolean) {
+  async doTurnDiscovery(meeting: Meeting, isReconnecting?: boolean) {
     // @ts-ignore - fix type
-    const isAnyClusterReachable = meeting.webex.meetings.reachability.isAnyClusterReachable();
+    const isAnyClusterReachable = await meeting.webex.meetings.reachability.isAnyClusterReachable();
 
     if (isAnyClusterReachable) {
       LoggerProxy.logger.info(
         'Roap:turnDiscovery#doTurnDiscovery --> reachability has not failed, skipping TURN discovery'
       );
 
-      return Promise.resolve({
+      return {
         turnServerInfo: undefined,
         turnDiscoverySkippedReason: 'reachability',
-      });
+      };
     }
 
     // @ts-ignore - fix type
@@ -251,7 +259,7 @@ export default class TurnDiscovery {
         'Roap:turnDiscovery#doTurnDiscovery --> TURN discovery disabled in config, skipping it'
       );
 
-      return Promise.resolve({turnServerInfo: undefined, turnDiscoverySkippedReason: 'config'});
+      return {turnServerInfo: undefined, turnDiscoverySkippedReason: 'config'};
     }
 
     return this.sendRoapTurnDiscoveryRequest(meeting, isReconnecting)
@@ -277,7 +285,7 @@ export default class TurnDiscovery {
           stack: e.stack,
         });
 
-        return Promise.resolve({turnServerInfo: undefined, turnDiscoverySkippedReason: undefined});
+        return {turnServerInfo: undefined, turnDiscoverySkippedReason: undefined};
       });
   }
 }

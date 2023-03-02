@@ -9,6 +9,7 @@ import LoggerProxy from '../common/logs/logger-proxy';
 import {
   ALERT,
   ALTERNATE_REDIRECT_TRUE,
+  BREAKOUTS,
   CALL,
   CONTROLS,
   DECLINE,
@@ -26,6 +27,7 @@ import {
   _SLIDES_,
 } from '../constants';
 import {Reaction} from '../reactions/reactions.type';
+import {SendReactionOptions, ToggleReactionsOptions} from './request.type';
 
 /**
  * @class MeetingRequest
@@ -54,6 +56,7 @@ export default class MeetingRequest extends StatelessWebexPlugin {
    * @param {boolean} options.pin
    * @param {boolean} options.moveToResource
    * @param {Object} options.roapMessage
+   * @param {boolean} options.breakoutsSupported
    * @returns {Promise}
    */
   async joinMeeting(options: {
@@ -72,6 +75,7 @@ export default class MeetingRequest extends StatelessWebexPlugin {
     meetingNumber: any;
     permissionToken: any;
     preferTranscoding: any;
+    breakoutsSupported: boolean;
   }) {
     const {
       asResourceOccupant,
@@ -88,6 +92,7 @@ export default class MeetingRequest extends StatelessWebexPlugin {
       moveToResource,
       roapMessage,
       preferTranscoding,
+      breakoutsSupported,
     } = options;
 
     LoggerProxy.logger.info('Meeting:request#joinMeeting --> Joining a meeting', correlationId);
@@ -112,6 +117,10 @@ export default class MeetingRequest extends StatelessWebexPlugin {
         preferTranscoding: preferTranscoding ?? true,
       },
     };
+
+    if (breakoutsSupported) {
+      body.deviceCapabilities = [BREAKOUTS.BREAKOUTS_SUPPORTED];
+    }
 
     // @ts-ignore
     if (this.webex.meetings.clientRegion) {
@@ -547,6 +556,7 @@ export default class MeetingRequest extends StatelessWebexPlugin {
    * @param {String} options.deviceUrl Url of a device
    * @param {String} options.resourceId Populated if you are paired to a device
    * @param {String} options.localMedias local sdps
+   * @param {Boolean} options.preferTranscoding false for multistream (Homer), true for transcoded media (Edonus)
    * @returns {Promise}
    */
   remoteAudioVideoToggle(
@@ -786,15 +796,7 @@ export default class MeetingRequest extends StatelessWebexPlugin {
    * @param {string} options.senderID
    * @returns {Promise}
    */
-  sendReaction({
-    reactionChannelUrl,
-    reaction,
-    participantId,
-  }: {
-    reactionChannelUrl: string;
-    reaction: Reaction;
-    participantId: string;
-  }) {
+  sendReaction({reactionChannelUrl, reaction, participantId}: SendReactionOptions) {
     const uri = reactionChannelUrl;
 
     // @ts-ignore
@@ -804,6 +806,28 @@ export default class MeetingRequest extends StatelessWebexPlugin {
       body: {
         sender: {participantId},
         reaction,
+      },
+    });
+  }
+
+  /**
+   * Make a network request to enable or disable reactions.
+   * @param {boolean} options.enable - determines if we need to enable or disable.
+   * @param {locusUrl} options.locusUrl
+   * @returns {Promise}
+   */
+  toggleReactions({enable, locusUrl, requestingParticipantId}: ToggleReactionsOptions) {
+    const uri = `${locusUrl}/${CONTROLS}`;
+
+    // @ts-ignore
+    return this.request({
+      method: HTTP_VERBS.PUT,
+      uri,
+      body: {
+        reactions: {
+          enabled: enable,
+        },
+        requestingParticipantId,
       },
     });
   }

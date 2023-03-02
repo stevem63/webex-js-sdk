@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import {assert} from '@webex/test-helper-chai';
 import MeetingUtil from '@webex/plugin-meetings/src/meeting/util';
-import createMuteState from '@webex/plugin-meetings/src/meeting/muteState';
+import {createMuteState} from '@webex/plugin-meetings/src/meeting/muteState';
 import Media from '@webex/plugin-meetings/src/media/index';
 import PermissionError from '@webex/plugin-meetings/src/common/errors/permission';
 import {AUDIO, VIDEO} from '@webex/plugin-meetings/src/constants';
@@ -12,6 +12,7 @@ describe('plugin-meetings', () => {
   let meeting;
   let audio;
   let video;
+  let originalRemoteUpdateAudioVideo;
 
   const fakeLocus = {info: 'this is a fake locus'};
 
@@ -34,8 +35,14 @@ describe('plugin-meetings', () => {
     audio = createMuteState(AUDIO, meeting, {sendAudio: true});
     video = createMuteState(VIDEO, meeting, {sendVideo: true});
 
+    originalRemoteUpdateAudioVideo = MeetingUtil.remoteUpdateAudioVideo;
+
     MeetingUtil.remoteUpdateAudioVideo = sinon.stub().resolves(fakeLocus);
     Media.setLocalTrack = sinon.stub();
+  });
+
+  afterEach(() => {
+    MeetingUtil.remoteUpdateAudioVideo = originalRemoteUpdateAudioVideo;
   });
 
   describe('mute state library', () => {

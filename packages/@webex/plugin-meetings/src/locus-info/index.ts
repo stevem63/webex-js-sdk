@@ -339,7 +339,14 @@ export default class LocusInfo extends EventsScope {
    * @returns {undefined}
    * @memberof LocusInfo
    */
-  updateLocusInfo(locus: any) {
+  updateLocusInfo(locus) {
+    if (locus.self?.reason === 'MOVED' && locus.self?.state === 'LEFT') {
+      // When moved to a breakout session locus sends a message for the previous locus
+      // indicating that we have been moved. It isn't helpful to continue parsing this
+      // as it gets interpreted as if we have left the call
+      return;
+    }
+
     this.updateControls(locus.controls);
     this.updateConversationUrl(locus.conversationUrl, locus.info);
     this.updateCreated(locus.created);
@@ -677,6 +684,7 @@ export default class LocusInfo extends EventsScope {
           hasMeetingContainerChanged,
           hasTranscribeChanged,
           hasEntryExitToneChanged,
+          hasBreakoutChanged,
         },
         current,
       } = ControlsUtils.getControls(this.controls, controls);
@@ -736,6 +744,21 @@ export default class LocusInfo extends EventsScope {
           {
             transcribing,
             caption,
+          }
+        );
+      }
+
+      if (hasBreakoutChanged) {
+        const {breakout} = current;
+
+        this.emitScoped(
+          {
+            file: 'locus-info',
+            function: 'updateControls',
+          },
+          LOCUSINFO.EVENTS.CONTROLS_MEETING_BREAKOUT_UPDATED,
+          {
+            breakout,
           }
         );
       }
@@ -975,6 +998,8 @@ export default class LocusInfo extends EventsScope {
       const parsedMediaShares = MediaSharesUtils.getMediaShares(this.mediaShares, mediaShares);
 
       this.updateMeeting(parsedMediaShares.current);
+      this.parsedLocus.mediaShares = parsedMediaShares.current;
+      this.mediaShares = mediaShares;
       this.emitScoped(
         {
           file: 'locus-info',
@@ -986,8 +1011,6 @@ export default class LocusInfo extends EventsScope {
           previous: parsedMediaShares.previous,
         }
       );
-      this.parsedLocus.mediaShares = parsedMediaShares.current;
-      this.mediaShares = mediaShares;
     }
   }
 
@@ -1062,6 +1085,17 @@ export default class LocusInfo extends EventsScope {
           },
           LOCUSINFO.EVENTS.CONTROLS_MEETING_LAYOUT_UPDATED,
           {layout: parsedSelves.current.layout}
+        );
+      }
+
+      if (parsedSelves.updates.breakoutsChanged) {
+        this.emitScoped(
+          {
+            file: 'locus-info',
+            function: 'updateSelf',
+          },
+          LOCUSINFO.EVENTS.SELF_MEETING_BREAKOUTS_CHANGED,
+          {breakoutSessions: parsedSelves.current.breakoutSessions}
         );
       }
 

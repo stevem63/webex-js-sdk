@@ -2,6 +2,7 @@ import 'jsdom-global/register';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
+import {ConnectionState} from '@webex/internal-media-core';
 
 import {StatsAnalyzer, EVENTS} from '../../../../src/statsAnalyzer';
 import NetworkQualityMonitor from '../../../../src/networkQualityMonitor';
@@ -23,14 +24,15 @@ describe('plugin-meetings', () => {
       };
 
       const defaultStats = {
+        resolutions: {},
         internal: {
-          video: {
+          'video-send-1': {
             send: {
               totalPacketsLostOnReceiver: 10,
             },
           },
         },
-        video: {
+        'video-send-1': {
           send: {
             packetsSent: 2,
             meanRemoteJitter: [],
@@ -64,12 +66,12 @@ describe('plugin-meetings', () => {
       });
 
       it('should trigger determineUplinkNetworkQuality with specific arguments', async () => {
-        await statsAnalyzer.parseGetStatsResult(statusResult, 'video');
+        await statsAnalyzer.parseGetStatsResult(statusResult, 'video-send-1', true);
 
         assert.calledOnce(statsAnalyzer.networkQualityMonitor.determineUplinkNetworkQuality);
         assert(
           sandBoxSpy.calledWith({
-            mediaType: 'video',
+            mediaType: 'video-send-1',
             remoteRtpResults: statusResult,
             statsAnalyzerCurrentStats: statsAnalyzer.statsResults,
           })
@@ -109,56 +111,75 @@ describe('plugin-meetings', () => {
         // bytesReceived and bytesSent need to be non-zero in order for StatsAnalyzer to parse any other values
         fakeStats = {
           audio: {
-            receiver: {
-              type: 'inbound-rtp',
-              packetsReceived: 0,
-              bytesReceived: 1,
-            },
-            sender: {
-              type: 'outbound-rtp',
-              packetsSent: 0,
-              bytesSent: 1,
-            },
+            senders: [
+              {
+                report: [
+                  {
+                    type: 'outbound-rtp',
+                    packetsSent: 0,
+                    bytesSent: 1,
+                  },
+                ],
+              },
+            ],
+            receivers: [
+              {
+                report: [
+                  {
+                    type: 'inbound-rtp',
+                    packetsReceived: 0,
+                    bytesReceived: 1,
+                  },
+                ],
+              },
+            ],
           },
           video: {
-            receiver: {
-              type: 'inbound-rtp',
-              framesDecoded: 0,
-              bytesReceived: 1,
-            },
-            sender: {
-              type: 'outbound-rtp',
-              framesSent: 0,
-              bytesSent: 1,
-            },
+            senders: [
+              {
+                report: [
+                  {
+                    type: 'outbound-rtp',
+                    framesSent: 0,
+                    bytesSent: 1,
+                  },
+                ],
+              },
+            ],
+            receivers: [
+              {
+                report: [
+                  {
+                    type: 'inbound-rtp',
+                    framesDecoded: 0,
+                    bytesReceived: 1,
+                  },
+                ],
+              },
+            ],
           },
         };
 
         pc = {
-          audioTransceiver: {
-            sender: {
-              getStats: sinon.stub().resolves([fakeStats.audio.sender]),
+          getConnectionState: sinon.stub().returns(ConnectionState.Connected),
+          getTransceiverStats: sinon.stub().resolves({
+            audio: {
+              senders: [fakeStats.audio.senders[0]],
+              receivers: [fakeStats.audio.receivers[0]],
             },
-            receiver: {
-              getStats: sinon.stub().resolves([fakeStats.audio.receiver]),
+            video: {
+              senders: [fakeStats.video.senders[0]],
+              receivers: [fakeStats.video.receivers[0]],
             },
-          },
-          videoTransceiver: {
-            sender: {
-              getStats: sinon.stub().resolves([fakeStats.video.sender]),
+            screenShareAudio: {
+              senders: [],
+              receivers: [],
             },
-            receiver: {
-              getStats: sinon.stub().resolves([fakeStats.video.receiver]),
+            screenShareVideo: {
+              senders: [],
+              receivers: [],
             },
-          },
-          shareTransceiver: {
-            sender: {
-              getStats: sinon.stub().resolves([]),
-            },
-            receiver: {
-              getStats: sinon.stub().resolves([]),
-            },
-          },
+          }),
         };
 
         networkQualityMonitor = new NetworkQualityMonitor(initialConfig);
@@ -210,7 +231,7 @@ describe('plugin-meetings', () => {
         checkReceivedEvent({expected: {}});
 
         // setup a mock to return some values higher the previous ones
-        fakeStats.audio.sender.packetsSent += 10;
+        fakeStats.audio.senders[0].report[0].packetsSent += 10;
 
         await progressTime();
 
@@ -230,7 +251,7 @@ describe('plugin-meetings', () => {
         checkReceivedEvent({expected: {}});
 
         // setup a mock to return some values higher the previous ones
-        fakeStats.video.sender.framesSent += 1;
+        fakeStats.video.senders[0].report[0].framesSent += 1;
 
         await progressTime();
 
@@ -250,7 +271,7 @@ describe('plugin-meetings', () => {
         checkReceivedEvent({expected: {}});
 
         // setup a mock to return some values higher the previous ones
-        fakeStats.audio.receiver.packetsReceived += 5;
+        fakeStats.audio.receivers[0].report[0].packetsReceived += 5;
 
         await progressTime();
         // check that we got the REMOTE_MEDIA_STARTED event for audio
@@ -270,7 +291,7 @@ describe('plugin-meetings', () => {
         checkReceivedEvent({expected: {}});
 
         // setup a mock to return some values higher the previous ones
-        fakeStats.video.receiver.framesDecoded += 1;
+        fakeStats.video.receivers[0].report[0].framesDecoded += 1;
 
         await progressTime();
         // check that we got the REMOTE_MEDIA_STARTED event for video

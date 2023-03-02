@@ -9,7 +9,8 @@ import {AUDIO, VIDEO} from '../constants';
    If we ever need to support it, search for REMOTE_MUTE_VIDEO_MISSING_IMPLEMENTATION string to find the places that need updating
 */
 
-const createMuteState = (type, meeting, mediaDirection) => {
+// eslint-disable-next-line import/prefer-default-export
+export const createMuteState = (type, meeting, mediaDirection) => {
   if (type === AUDIO && !mediaDirection.sendAudio) {
     return null;
   }
@@ -361,5 +362,3 @@ class MuteState {
     return this.isSelf();
   }
 }
-
-export default createMuteState;

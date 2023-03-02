@@ -27,8 +27,6 @@ export const DECLINE = 'decline';
 export const ERROR = 'error';
 export const ENDED = 'ended';
 
-export const OFFER = 'offer';
-
 export const HECATE = 'hecate';
 
 export const HOST = 'host';
@@ -105,7 +103,6 @@ export const _MEETING_ID_ = 'MEETING_ID';
 export const _NOT_IN_MEETING_ = 'NOT_IN_MEETING';
 export const _NONE_ = 'NONE';
 
-export const _OFFER_ = 'OFFER';
 export const _OBSERVE_ = 'OBSERVE';
 
 export const _PERSONAL_ROOM_ = 'PERSONAL_ROOM';
@@ -191,7 +188,6 @@ export const ICE_TIMEOUT = 2000;
 export const ICE_FAIL_TIMEOUT = 3000;
 
 export const RETRY_TIMEOUT = 3000;
-export const ROAP_SEQ_PRE = -1;
 
 export const PC_BAIL_TIMEOUT = 8000;
 
@@ -292,6 +288,7 @@ export const EVENT_TRIGGERS = {
   MEETING_STOPPED_RECORDING: 'meeting:recording:stopped',
   MEETING_STARTED_RECEIVING_TRANSCRIPTION: 'meeting:receiveTranscription:started',
   MEETING_STOPPED_RECEIVING_TRANSCRIPTION: 'meeting:receiveTranscription:stopped',
+  MEETING_RECEIVE_REACTIONS: 'meeting:receiveReactions',
   MEETING_PAUSED_RECORDING: 'meeting:recording:paused',
   MEETING_RESUMED_RECORDING: 'meeting:recording:resumed',
   MEETING_ADDED: 'meeting:added',
@@ -308,6 +305,9 @@ export const EVENT_TRIGGERS = {
   MEETING_SELF_IS_SHARING_BLOCKED: 'meeting:self:isSharingBlocked',
   MEETING_CONTROLS_LAYOUT_UPDATE: 'meeting:layout:update',
   MEETING_ENTRY_EXIT_TONE_UPDATE: 'meeting:entryExitTone:update',
+  MEETING_BREAKOUTS_UPDATE: 'meeting:breakouts:update',
+  MEETING_BREAKOUTS_CLOSING: 'meeting:breakouts:closing',
+  MEETING_BREAKOUTS_MESSAGE: 'meeting:breakouts:message',
   MEMBERS_UPDATE: 'members:update',
   MEMBERS_CONTENT_UPDATE: 'members:content:update',
   MEMBERS_HOST_UPDATE: 'members:host:update',
@@ -330,6 +330,13 @@ export const EVENT_TRIGGERS = {
   MEETING_SELF_LEFT: 'meeting:self:left',
   NETWORK_QUALITY: 'network:quality',
   MEDIA_NEGOTIATED: 'media:negotiated',
+  // the following events apply only to multistream media connections
+  ACTIVE_SPEAKER_CHANGED: 'media:activeSpeakerChanged',
+  REMOTE_VIDEO_SOURCE_COUNT_CHANGED: 'media:remoteVideoSourceCountChanged',
+  REMOTE_AUDIO_SOURCE_COUNT_CHANGED: 'media:remoteAudioSourceCountChanged',
+  REMOTE_MEDIA_AUDIO_CREATED: 'media:remoteAudio:created',
+  REMOTE_MEDIA_SCREEN_SHARE_AUDIO_CREATED: 'media:remoteScreenShareAudio:created',
+  REMOTE_MEDIA_VIDEO_LAYOUT_CHANGED: 'media:remoteVideo:layoutChanged',
 };
 
 export const EVENT_TYPES = {
@@ -373,8 +380,6 @@ export const SHARE_STOPPED_REASON = {
 };
 
 export const EVENTS = {
-  ROAP_OK: 'ROAP_OK',
-  ROAP_ANSWER: 'ROAP_ANSWER',
   SELF_UNADMITTED_GUEST: 'SELF_UNADMITTED_GUEST',
   SELF_ADMITTED_GUEST: 'SELF_ADMITTED_GUEST',
   MEDIA_INACTIVITY: 'MEDIA_INACTIVITY',
@@ -513,11 +518,34 @@ export const LOCUS = {
   SYNCDEBUG: 'sync_debug',
 };
 
+export const BREAKOUTS = {
+  STATUS: {
+    CLOSING: 'CLOSING',
+  },
+  EVENTS: {
+    BREAKOUTS_CLOSING: 'BREAKOUTS_CLOSING',
+    MESSAGE: 'MESSAGE',
+    MEMBERS_UPDATE: 'MEMBERS_UPDATE',
+  },
+  SESSION_TYPES: {
+    MAIN: 'MAIN',
+  },
+  SESSION_STATES: {
+    ACTIVE: 'active',
+    ASSIGNED: 'assigned',
+    ALLOWED: 'allowed',
+    ASSIGNED_CURRENT: 'assignedCurrent',
+    REQUESTED: 'requested',
+  },
+  BREAKOUTS_SUPPORTED: 'BREAKOUTS_SUPPORTED',
+};
+
 export const LOCUSINFO = {
   EVENTS: {
     CONTROLS_MEETING_LAYOUT_UPDATED: 'CONTROLS_MEETING_LAYOUT_UPDATED',
     CONTROLS_RECORDING_UPDATED: 'CONTROLS_RECORDING_UPDATED',
     CONTROLS_MEETING_TRANSCRIBE_UPDATED: 'CONTROLS_MEETING_TRANSCRIBE_UPDATED',
+    CONTROLS_MEETING_BREAKOUT_UPDATED: 'CONTROLS_MEETING_BREAKOUT_UPDATED',
     CONTROLS_MEETING_CONTAINER_UPDATED: 'CONTROLS_MEETING_CONTAINER_UPDATED',
     CONTROLS_ENTRY_EXIT_TONE_UPDATED: 'CONTROLS_ENTRY_EXIT_TONE_UPDATED',
     SELF_UNADMITTED_GUEST: 'SELF_UNADMITTED_GUEST',
@@ -539,6 +567,8 @@ export const LOCUSINFO = {
     EMBEDDED_APPS_UPDATED: 'EMBEDDED_APPS_UPDATED',
     SELF_CANNOT_VIEW_PARTICIPANT_LIST_CHANGE: 'SELF_CANNOT_VIEW_PARTICIPANT_LIST_CHANGE',
     SELF_IS_SHARING_BLOCKED_CHANGE: 'SELF_IS_SHARING_BLOCKED_CHANGE',
+    SELF_MEETING_BREAKOUTS_CHANGED: 'SELF_MEETING_BREAKOUTS_CHANGED',
+    MEDIA_INACTIVITY: 'MEDIA_INACTIVITY',
     LINKS_SERVICES: 'LINKS_SERVICES',
   },
 };
@@ -551,6 +581,9 @@ export const LOCUSEVENT = {
 
   // delta events
   DIFFERENCE: 'locus.difference',
+
+  // Breakout sessions
+  BREAKOUT_ROSTER: 'breakout.roster',
 
   // screen sharing
   FLOOR_GRANTED: 'locus.floor_granted',
@@ -724,6 +757,10 @@ export const DISPLAY_HINTS = {
   TRANSCRIPTION_CONTROL_STOP: 'TRANSCRIPTION_CONTROL_STOP',
   WEBEX_ASSISTANT_STATUS_ACTIVE: 'WEBEX_ASSISTANT_STATUS_ACTIVE',
   WAITING_FOR_OTHERS: 'WAITING_FOR_OTHERS',
+  ENABLE_REACTIONS: 'ENABLE_REACTIONS',
+  DISABLE_REACTIONS: 'DISABLE_REACTIONS',
+  REACTIONS_ACTIVE: 'REACTIONS_ACTIVE',
+  REACTIONS_INACTIVE: 'REACTIONS_INACTIVE',
   ENABLE_MUTE_ON_ENTRY: 'ENABLE_MUTE_ON_ENTRY',
   DISABLE_MUTE_ON_ENTRY: 'DISABLE_MUTE_ON_ENTRY',
   ENABLE_HARD_MUTE: 'ENABLE_HARD_MUTE',
@@ -818,74 +855,25 @@ export const RESOURCE = {
 
 export const REACHABILITY = {
   localStorage: 'reachability.result',
+  namespace: 'Reachability',
 };
 
 export const ROAP = {
-  ROAP_TRANSITIONS: {
-    STEP: 'step',
-  },
   ROAP_TYPES: {
     OFFER: 'OFFER',
     ANSWER: 'ANSWER',
     OK: 'OK',
     ERROR: 'ERROR',
-    SHUTDOWN: 'SHUTDOWN',
-    OFFER_REQUEST: 'OFFER_REQUEST',
     TURN_DISCOVERY_REQUEST: 'TURN_DISCOVERY_REQUEST',
     TURN_DISCOVERY_RESPONSE: 'TURN_DISCOVERY_RESPONSE',
   },
-  ROAP_STATE: {
-    INIT: 'INIT',
-    WAIT_RX_OFFER: 'WAIT_RX_OFFER',
-    WAIT_RX_ANSWER: 'WAIT_RX_ANSWER',
-    WAIT_RX_OK: 'WAIT_RX_OK',
-    WAIT_TX_OFFER: 'WAIT_TX_OFFER',
-    WAIT_TX_ANSWER: 'WAIT_TX_ANSWER',
-    WAIT_TX_OK: 'WAIT_TX_OK',
-    IDLE_LOCAL_OFFER: 'IDLE_LOCAL_OFFER',
-    IDLE_REMOTE_OFFER: 'IDLE_REMOTE_OFFER',
-    GLARE: 'GLARE',
-    ERROR: 'ERROR',
-  },
-  ROAP_SIGNAL: {
-    RX_OFFER: 'RX_OFFER',
-    TX_OFFER: 'TX_OFFER',
-    RX_ANSWER: 'RX_ANSWER',
-    TX_ANSWER: 'TX_ANSWER',
-    RX_OK: 'RX_OK',
-    TX_OK: 'TX_OK',
-    GLARE_RESOLVED: 'GLARE_RESOLVED',
-  },
-  RECEIVE_ROAP_MSG: 'RECEIVE_ROAP_MSG',
-  SEND_ROAP_MSG: 'SEND_ROAP_MSG',
-  SEND_ROAP_MSG_SUCCESS: 'SEND_ROAP_MSG_SUCCESS',
-  RESET_ROAP_STATE: 'RESET_ROAP_STATE',
-  RECEIVE_CALL_LEAVE: 'RECEIVE_CALL_LEAVE',
   ROAP_MERCURY: 'event:locus.message.roap',
   ROAP_VERSION: '2',
-  RX_: 'RX_',
-  TX_: 'TX_',
 };
 
 export const MediaContent = {
   main: 'main',
   slides: 'slides',
-};
-
-export const SDP = {
-  A_CONTENT_SLIDES: 'a=content:slides',
-  ROLLBACK: 'rollback',
-  HAVE_LOCAL_OFFER: 'have-local-offer',
-  HAVE_REMOTE_OFFER: 'have-remote-offer',
-  STABLE: 'stable',
-  OFFER: 'offer',
-  M_LINE: 'm=',
-  MAX_FS: 'max-fs=',
-  B_LINE: 'b=TIAS',
-  // Edonus repeated key frames request
-  PERIODIC_KEYFRAME: 'a=periodic-keyframes:20',
-  CARRIAGE_RETURN: '\r\n',
-  BAD_MEDIA_PORTS: [0],
 };
 
 export const NETWORK_STATUS = {
@@ -902,9 +890,6 @@ export const NETWORK_TYPE = {
 };
 
 export const STATS = {
-  AUDIO_CORRELATE: 'audio',
-  VIDEO_CORRELATE: 'video',
-  SHARE_CORRELATE: 'share',
   SEND_DIRECTION: 'send',
   RECEIVE_DIRECTION: 'recv',
   REMOTE: 'remote',
@@ -988,6 +973,7 @@ export const MQA_STATS = {
 
 // ****** MEDIA QUALITY CONSTANTS ****** //
 
+// these values must match allowed values of RemoteQualityLevel from the @webex/internal-media-core lib
 export const QUALITY_LEVELS = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -1057,18 +1043,6 @@ export const VIDEO_RESOLUTIONS = {
   [QUALITY_LEVELS['480p']]: AVAILABLE_RESOLUTIONS['480p'],
   [QUALITY_LEVELS['720p']]: AVAILABLE_RESOLUTIONS['720p'],
   [QUALITY_LEVELS['1080p']]: AVAILABLE_RESOLUTIONS['1080p'],
-};
-
-/**
- * Max frame sizes based on h264 configs
- * https://en.wikipedia.org/wiki/Advanced_Video_Coding
- */
-export const REMOTE_VIDEO_CONSTRAINTS = {
-  MAX_FS: {
-    [QUALITY_LEVELS.LOW]: 1620,
-    [QUALITY_LEVELS.MEDIUM]: 3600,
-    [QUALITY_LEVELS.HIGH]: 8192,
-  },
 };
 
 /*

@@ -4,6 +4,7 @@ import '@webex/internal-plugin-mercury';
 import '@webex/internal-plugin-conversation';
 // @ts-ignore
 import {WebexPlugin} from '@webex/webex-core';
+import {setLogger} from '@webex/internal-media-core';
 
 import 'webrtc-adapter';
 
@@ -53,6 +54,33 @@ import CaptchaError from '../common/errors/captcha-error';
 import MeetingCollection from './collection';
 import MeetingsUtil from './util';
 
+let mediaLogger;
+
+class MediaLogger {
+  info(...args) {
+    LoggerProxy.logger.info(...args);
+  }
+
+  log(...args) {
+    LoggerProxy.logger.log(...args);
+  }
+
+  error(...args) {
+    LoggerProxy.logger.error(...args);
+  }
+
+  warn(...args) {
+    LoggerProxy.logger.warn(...args);
+  }
+
+  trace(...args) {
+    LoggerProxy.logger.trace(...args);
+  }
+
+  debug(...args) {
+    LoggerProxy.logger.debug(...args);
+  }
+}
 /**
  * Meetings Ready Event
  * Emitted when the meetings instance on webex is ready
@@ -431,6 +459,9 @@ export default class Meetings extends WebexPlugin {
       LoggerConfig.set(this.config.logging);
       // @ts-ignore
       LoggerProxy.set(this.webex.logger);
+
+      mediaLogger = new MediaLogger();
+      setLogger(mediaLogger);
 
       /**
        * The MeetingInfo object to interact with server
@@ -930,7 +961,6 @@ export default class Meetings extends WebexPlugin {
         deviceUrl: this.webex.internal.device.url,
         // @ts-ignore
         orgId: this.webex.internal.device.orgId,
-        roapSeq: 0,
         locus: type === _LOCUS_ID_ ? destination : null, // pass the locus object if present
         meetingInfoProvider: this.meetingInfo,
         destination,

@@ -14,6 +14,8 @@ import ParameterError from '../common/errors/parameter';
 import MembersCollection from './collection';
 import MembersRequest from './request';
 import MembersUtil from './util';
+import {ReceiveSlotManager} from '../multistream/receiveSlotManager';
+import {MediaRequestManager} from '../multistream/mediaRequestManager';
 
 /**
  * Members Update Event
@@ -67,6 +69,12 @@ export default class Members extends StatelessWebexPlugin {
   mediaShareWhiteboardId: any;
   membersCollection: any;
   membersRequest: any;
+  receiveSlotManager: ReceiveSlotManager;
+  mediaRequestManagers: {
+    audio: MediaRequestManager;
+    video: MediaRequestManager;
+  };
+
   recordingId: any;
   selfId: any;
   type: any;
@@ -160,6 +168,18 @@ export default class Members extends StatelessWebexPlugin {
      * @memberof Members
      */
     this.recordingId = null;
+
+    /**
+     * reference to a ReceiveSlotManager instance (for multistream)
+     * @private
+     */
+    this.receiveSlotManager = attrs.receiveSlotManager;
+
+    /**
+     * reference to a MediaRequestManager instance that manages main video requests (for multistream)
+     * @private
+     */
+    this.mediaRequestManagers = attrs.mediaRequestManagers;
   }
 
   /**
@@ -275,6 +295,8 @@ export default class Members extends StatelessWebexPlugin {
     if (payload) {
       const delta = this.handleLocusInfoUpdatedParticipants(payload);
       const full = this.handleMembersUpdate(delta); // SDK should propagate the full list for both delta and non delta updates
+
+      this.receiveSlotManager.updateMemberIds();
 
       Trigger.trigger(
         this,
@@ -896,5 +918,46 @@ export default class Members extends StatelessWebexPlugin {
         'Members:index#sendDialPadKey --> cannot send DTMF, meeting does not have a connection to the "locus" call control service.'
       )
     );
+  }
+
+  /** Finds a member that has any device with a csi matching provided value
+   *
+   * @param {number} csi
+   * @returns {Member}
+   */
+  findMemberByCsi(csi) {
+    return Object.values(this.membersCollection.getAll()).find((member) =>
+      // @ts-ignore
+      member.participant?.devices?.find((device) =>
+        device.csis?.find((memberCsi) => memberCsi === csi)
+      )
+    );
+  }
+
+  /**
+   * Returns an array of a member's CSIs matching the mediaType and mediaContent
+   *
+   * @param {string} memberId
+   * @param {string} mediaType 'audio' or 'video'
+   * @param {string} mediaContent 'main' or 'slides'
+   * @returns {Member}
+   */
+  getCsisForMember(memberId, mediaType = 'video', mediaContent = 'main') {
+    const csis = [];
+
+    this.membersCollection.get(memberId)?.participant?.devices?.forEach((device) => {
+      if (device.mediaSessions) {
+        const deviceCsis = device.mediaSessions
+          ?.filter(
+            (mediaSession) =>
+              mediaSession.mediaType === mediaType && mediaSession.mediaContent === mediaContent
+          )
+          .map((mediaSession) => mediaSession.csi);
+
+        csis.push(...deviceCsis);
+      }
+    });
+
+    return csis;
   }
 }

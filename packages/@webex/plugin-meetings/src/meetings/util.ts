@@ -7,6 +7,7 @@ import {
   LOCUSEVENT,
   CORRELATION_ID,
   EVENT_TRIGGERS,
+  ROAP,
 } from '../constants';
 import LoggerProxy from '../common/logs/logger-proxy';
 import Trigger from '../common/events/trigger-proxy';
@@ -41,9 +42,50 @@ MeetingsUtil.handleRoapMercury = (envelope, meetingCollection) => {
     const meeting = meetingCollection.getByKey(CORRELATION_ID, data.correlationId);
 
     if (meeting) {
-      meeting.roap.roapEvent(data);
+      const {seq, messageType, tieBreaker, errorType, errorCause} = data.message;
+
+      if (messageType === ROAP.ROAP_TYPES.TURN_DISCOVERY_RESPONSE) {
+        // turn discovery is not part of normal roap protocol and so we are not handling it
+        // through the usual roap state machine
+        meeting.roap.turnDiscovery.handleTurnDiscoveryResponse(data.message);
+      } else {
+        const roapMessage = {
+          seq,
+          messageType,
+          sdp: data.message.sdps?.length > 0 ? data.message.sdps[0] : undefined,
+          tieBreaker,
+          errorType,
+          errorCause,
+        };
+
+        const mediaServer = MeetingsUtil.getMediaServer(roapMessage.sdp);
+
+        meeting.mediaProperties.webrtcMediaConnection.roapMessageReceived(roapMessage);
+
+        if (mediaServer) {
+          meeting.mediaProperties.webrtcMediaConnection.mediaServer = mediaServer;
+        }
+      }
     }
   }
+};
+
+MeetingsUtil.getMediaServer = (sdp) => {
+  let mediaServer;
+
+  // Attempt to collect the media server from the roap message.
+  try {
+    mediaServer = sdp
+      .split('\r\n')
+      .find((line) => line.startsWith('o='))
+      .split(' ')
+      .shift()
+      .replace('o=', '');
+  } catch {
+    mediaServer = undefined;
+  }
+
+  return mediaServer;
 };
 
 MeetingsUtil.checkForCorrelationId = (deviceUrl, locus) => {
